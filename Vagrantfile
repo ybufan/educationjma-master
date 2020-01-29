@@ -30,17 +30,18 @@ Vagrant.configure("2") do |config|
   # via 127.0.0.1 to disable public access
   
   config.vm.network "forwarded_port", guest: 9090, host: 19090, host_ip: "127.0.0.1"
+  
   # SMTP
   config.vm.network "forwarded_port", guest: 25, host: 1025
 
   # SUBMISSION
-  config.vm.network "forwarded_port", guest: 587, host: 1587, protocol: "tcp"
+  config.vm.network "forwarded_port", guest: 587, host: 1587
 
   # IMAP
-  config.vm.network "forwarded_port", guest: 143, host: 1143, protocol: "tcp"
+  config.vm.network "forwarded_port", guest: 143, host: 1143
 
   # POP3 
-  config.vm.network "forwarded_port", guest: 1110, host: 110, protocol: "tcp"
+  config.vm.network "forwarded_port", guest: 110, host: 1110
   
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
@@ -80,7 +81,7 @@ Vagrant.configure("2") do |config|
      yum install -y epel-release
      yum install -y vim cockpit bash-completion postfix dovecot telnet nc
      # OS configuration block
-     hostnamectl set-hostname allinone-by
+     hostnamectl set-hostname allinone-by.localhost
   	 # Service configuration block
      systemctl enable --now postfix 
      systemctl enable --now dovecot
