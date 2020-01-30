@@ -78,14 +78,20 @@ Vagrant.configure("2") do |config|
   # documentation for more information about their specific syntax and use.
    config.vm.provision "shell", inline: <<-SHELL
      # Installation block
-     yum install -y epel-release
-     yum install -y vim cockpit bash-completion postfix dovecot telnet nc
+     yum -y install epel-release
+     yum -y install vim cockpit bash-completion postfix dovecot telnet nc
+	 yum -y install cyrus-sasl cyrus-sasl-plain
+     yum -y install pdns pdns-recursor
+     yum -y install bind-utils
      # OS configuration block
      hostnamectl set-hostname allinone-by.localhost
   	 # Service configuration block
      systemctl enable --now postfix 
      systemctl enable --now dovecot
      systemctl enable --now cockpit.socket
+	 systemctl enable --now pdns-recursor
+     systemctl enable --now pdns
+	 chmod 0600 /var/mail/*
      # User configuration block
      useradd engineer 
      usermod -p '$6$xyz$.UccqMWqX8VK4PRzmKTR1woU2y5IgDas9n.XPkhgK8M62yVqI4sLx.Yw2AC5z7t4Ke3NiU7aq7i3Su5QdrRcF1' engineer
