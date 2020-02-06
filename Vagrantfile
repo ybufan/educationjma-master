@@ -111,7 +111,7 @@ Vagrant.configure("2") do |config|
      mkdir -p /var/lib/pdns
      # Add zone file for domain
      cat > /var/lib/pdns/youdidnotevenimaginethisdomainexists.com.db << EOF
-$ORIGIN youdidnotevenimaginethisdomainexists.com.
+\\$ORIGIN youdidnotevenimaginethisdomainexists.com.
 @                      3600 SOA   ns1.allinone-mh.localhost. (
                               postmaster.allinone-mh.localhost.     ; address of responsible party
                               2016072701                 ; serial number
