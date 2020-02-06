@@ -76,11 +76,11 @@ Vagrant.configure("2") do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
-   config.vm.provision "shell", inline: <<-SHELL
+   config.vm.provision "install and enable software", type: "shell", inline: <<-SHELL
      # Installation block
      yum -y install epel-release
      yum -y install vim cockpit bash-completion postfix dovecot telnet nc
-	 yum -y install cyrus-sasl cyrus-sasl-plain
+     yum -y install cyrus-sasl cyrus-sasl-plain
      yum -y install pdns pdns-recursor
      yum -y install bind-utils
      # OS configuration block
@@ -89,9 +89,65 @@ Vagrant.configure("2") do |config|
      systemctl enable --now postfix 
      systemctl enable --now dovecot
      systemctl enable --now cockpit.socket
-	 systemctl enable --now pdns-recursor
+     systemctl enable --now pdns-recursor
      systemctl enable --now pdns
-	 chmod 0600 /var/mail/*
+  SHELL
+   config.vm.provision "email service config", type: "shell", inline: <<-SHELL
+	   chmod 0600 /var/mail/*
+     # Setting up inet_interfaces to all(listening all addresses)
+     sed -i 's/^\(inet_interfaces\s*=\s*\).*$/\1all/' /etc/postfix/main.cf
+     # Enabling sasl authentication
+     sed -i "\$a# Custom added options\nsmtpd_sasl_auth_enable = yes" /etc/postfix/main.cf
+     # Setting up mbox path
+     sed -i "/mail_location\ =\ mbox:~\/mail:INBOX=\/var\/mail\/%u/s/^#//" /etc/dovecot/conf.d/10-mail.conf
+     # Removing manager from alias list
+     sed -i '/^manager/d' /etc/aliases && newaliases
+  SHELL
+   config.vm.provision "pdns server config", type: "shell", inline: <<-SHELL
+     # Uncomment local-port at pdns config file and changing port value to 54
+     sed -i '/local-port=/s/^# //' /etc/pdns/pdns.conf
+     sed -i 's/^\(local-port\s*=\s*\).*$/\154/' /etc/pdns/pdns.conf
+     # Creating directory for zone file and copying it to his directory
+     mkdir -p /var/lib/pdns
+     # Add zone file for domain
+     cat > /var/lib/pdns/youdidnotevenimaginethisdomainexists.com.db << EOF
+$ORIGIN youdidnotevenimaginethisdomainexists.com.
+@                      3600 SOA   ns1.allinone-mh.localhost. (
+                              postmaster.allinone-mh.localhost.     ; address of responsible party
+                              2016072701                 ; serial number
+                              3600                       ; refresh period
+                              600                        ; retry period
+                              604800                     ; expire time
+                              1800                     ) ; minimum ttl
+                      86400 NS    ns1.p30.dynect.net.
+                      86400 NS    ns2.p30.dynect.net.
+                      86400 NS    ns3.p30.dynect.net.
+                      86400 NS    ns4.p30.dynect.net.
+                       3600 MX    10 mx1.allinone-mh.localhost.
+                       3600 MX    20 mx2.allinone-mh.localhost.
+                       3600 MX    30 mx3.allinone-mh.localhost.
+                         60 A     10.0.2.15
+EOF
+     # Creating custom named config and adding path to him to recursor.conf
+     cat > /etc/pdns/named.conf << EOF
+zone "youdidnotevenimaginethisdomainexists.com" {
+  file "/var/lib/pdns/youdidnotevenimaginethisdomainexists.com.db";
+  type master;
+};
+EOF
+    systemctl restart pdns
+  SHELL
+   # Moving sed commands into separate shell provisioner
+   config.vm.provision "pdns recursor config",type: "shell", inline: <<-SHELL
+     # Uncomment local-port at pdns-recursor config file
+     sed -i '/local-port=/s/^# //' /etc/pdns-recursor/recursor.conf
+     sed -i \"\\$abind-config=/etc/pdns/named.conf\" /etc/pdns/pdns.conf
+     # Configuring forward-zones
+     sed -i '/forward-zones=/s/^# //' /etc/pdns-recursor/recursor.conf
+     sed -i 's/^\\(forward-zones\s*=\s*\\).*$/\\1youdidnotevenimaginethisdomainexists.com=127.0.0.1:54/' /etc/pdns-recursor/recursor.conf
+    systemctl restart pdns-recursor
+  SHELL
+  config.vm.provision "user creation",type: "shell", inline: <<-SHELL
      # User configuration block
      useradd engineer 
      usermod -p '$6$xyz$.UccqMWqX8VK4PRzmKTR1woU2y5IgDas9n.XPkhgK8M62yVqI4sLx.Yw2AC5z7t4Ke3NiU7aq7i3Su5QdrRcF1' engineer
