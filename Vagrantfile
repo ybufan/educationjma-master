@@ -32,16 +32,25 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 9090, host: 19090, host_ip: "127.0.0.1"
   
   # SMTP
-  config.vm.network "forwarded_port", guest: 25, host: 1025
+  config.vm.network "forwarded_port", guest: 25, host: 1025, host_ip: "127.0.0.1"
 
   # SUBMISSION
-  config.vm.network "forwarded_port", guest: 587, host: 1587
+  config.vm.network "forwarded_port", guest: 587, host: 1587, host_ip: "127.0.0.1"
 
   # IMAP
-  config.vm.network "forwarded_port", guest: 143, host: 1143
+  config.vm.network "forwarded_port", guest: 143, host: 1143, host_ip: "127.0.0.1"
 
   # POP3 
-  config.vm.network "forwarded_port", guest: 110, host: 1110
+  config.vm.network "forwarded_port", guest: 110, host: 1110, host_ip: "127.0.0.1"
+  
+  #for Apache
+  config.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
+  
+  # dnsauth 
+  config.vm.network "forwarded_port", guest: 54, host: 154, host_ip: "127.0.0.1"
+  
+  # dnsrecurs
+  config.vm.network "forwarded_port", guest: 53, host: 153, host_ip: "127.0.0.1"
   
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
@@ -83,14 +92,51 @@ Vagrant.configure("2") do |config|
      yum -y install cyrus-sasl cyrus-sasl-plain
      yum -y install pdns pdns-recursor
      yum -y install bind-utils
-     # OS configuration block
-     hostnamectl set-hostname allinone-by.localhost
   	 # Service configuration block
      systemctl enable --now postfix 
      systemctl enable --now dovecot
      systemctl enable --now cockpit.socket
      systemctl enable --now pdns-recursor
      systemctl enable --now pdns
+	 systemctl enable --now php:remi-7.4
+	 systemctl enable --now mysqld
+	 systemctl enable --now httpd
+	 systemctl enable --now php-fpm.service
+	 # OS configuration block
+     hostnamectl set-hostname allinone-by.localhost
+	 
+	 #Installation of Roundcube Webmail
+	 # Installing Apache
+	 yum -y install httpd 
+	 # Installing mysql and mysql server
+	 yum -y install mysql-server mysql
+	 # Install PHP
+	 yum -y install php-fpm.x86_64 
+	 # Installing package repository
+	 dnf -y install  https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+	 # Install PHP modules required or recommended by Roundcube.
+	 dnf -y install  php-ldap php-imagick php-common php-gd php-imap php-json php-curl php-zip php-xml php-mbstring php-bz2 php-intl php-gmp
+	 # Mysql Sserver set up
+	 mysql -u root -p roundcube < /var/www/roundcube/SQL/mysql.initial.sql
+	 # Downloading RoundCube
+     wget https://github.com/roundcube/roundcubemail/releases/download/1.4.2/roundcubemail-1.4.2-complete.tar.gz
+     # Extracting RoundCube to /var/www
+     tar -xf roundcubemail-1.4.2-complete.tar.gz -C /var/www
+     # Renaming RoundCube Directory
+     mv /var/www/roundcubemail-1.4.2 /var/www/roundcube
+	 # Reset PHP module streams.
+     dnf -y module reset php
+	 # Enable the php:remi-7.4 module stream.
+     dnf -y module enable php:remi-7.4
+
+	  # Create a MySQL Database and User for Roundcube
+     systemctl start mysqld
+     mysql -u root --execute="CREATE DATABASE roundcube DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;"
+     mysql -u root --execute="CREATE USER roundcubeuser@localhost IDENTIFIED BY 'password';"
+     mysql -u root --execute="GRANT ALL PRIVILEGES ON roundcube.* TO roundcubeuser@localhost;"
+     mysql -u root --execute="flush privileges;"
+     mysql -u root roundcube < /var/www/roundcube/SQL/mysql.initial.sql
+	 
   SHELL
    config.vm.provision "email service config", type: "shell", inline: <<-SHELL
 	   chmod 0600 /var/mail/*
@@ -109,6 +155,10 @@ Vagrant.configure("2") do |config|
      sed -i 's/^\(local-port\s*=\s*\).*$/\154/' /etc/pdns/pdns.conf
      # Creating directory for zone file and copying it to his directory
      mkdir -p /var/lib/pdns
+	 #Setting Up Permissions
+	 sudo chcon -t httpd_sys_content_t /var/www/roundcube/ -R
+	 sudo chcon -t httpd_sys_rw_content_t /var/www/roundcube/temp/ /var/www/roundcube/logs/ -R
+	 sudo setfacl -R -m u:apache:rwx /var/www/roundcube/temp/ /var/www/roundcube/logs/
      # Add zone file for domain
      cat > /var/lib/pdns/youdidnotevenimaginethisdomainexists.com.db << EOF
 \\$ORIGIN youdidnotevenimaginethisdomainexists.com.
