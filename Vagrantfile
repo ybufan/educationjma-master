@@ -116,6 +116,8 @@ Vagrant.configure("2") do |config|
 	 dnf -y install  https://rpms.remirepo.net/enterprise/remi-release-8.rpm
 	 # Install PHP modules required or recommended by Roundcube.
 	 dnf -y install  php-ldap php-imagick php-common php-gd php-imap php-json php-curl php-zip php-xml php-mbstring php-bz2 php-intl php-gmp
+	 #Creation /var/www
+	 mkdir -p /var/www
 	 # Mysql Sserver set up
 	 mysql -u root -p roundcube < /var/www/roundcube/SQL/mysql.initial.sql
 	 # Downloading RoundCube
@@ -155,10 +157,18 @@ Vagrant.configure("2") do |config|
      sed -i 's/^\(local-port\s*=\s*\).*$/\154/' /etc/pdns/pdns.conf
      # Creating directory for zone file and copying it to his directory
      mkdir -p /var/lib/pdns
-	 #Setting Up Permissions
-	 sudo chcon -t httpd_sys_content_t /var/www/roundcube/ -R
-	 sudo chcon -t httpd_sys_rw_content_t /var/www/roundcube/temp/ /var/www/roundcube/logs/ -R
-	 sudo setfacl -R -m u:apache:rwx /var/www/roundcube/temp/ /var/www/roundcube/logs/
+	 
+	 EOF
+     # PHP-MySQL extension
+     yum -y install php-mysql
+     # SE Linux permission configuration
+     chcon -t httpd_sys_content_t /var/www/roundcube/ -R
+     chcon -t httpd_sys_rw_content_t /var/www/roundcube/temp/ /var/www/roundcube/logs/ -R
+     setfacl -R -m u:apache:rwx /var/www/roundcube/temp/ /var/www/roundcube/logs/
+     setsebool -P httpd_can_network_connect 1
+     
+     
+     cat > /var/www/roundcube/config/config.inc.php << EOF
      # Add zone file for domain
      cat > /var/lib/pdns/youdidnotevenimaginethisdomainexists.com.db << EOF
 \\$ORIGIN youdidnotevenimaginethisdomainexists.com.
