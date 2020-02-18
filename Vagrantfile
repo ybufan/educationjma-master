@@ -130,6 +130,11 @@ Vagrant.configure("2") do |config|
      dnf -y module reset php
 	 # Enable the php:remi-7.4 module stream.
      dnf -y module enable php:remi-7.4
+	 #Install puppppet
+	 dnf install https://yum.puppetlabs.com/puppet-release-el-8.noarch.rpm
+	 yum install puppet
+
+
 
 	  # Create a MySQL Database and User for Roundcube
      systemctl start mysqld
